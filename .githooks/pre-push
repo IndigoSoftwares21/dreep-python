@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Blocks direct pushes to protected branches, history rewrites, and unsigned commits.
+set -euo pipefail
+PY="$(git rev-parse --show-toplevel)/.venv/bin/python"; [ -x "$PY" ] || PY=python
+"$PY" scripts/git_guards.py branch
+"$PY" scripts/git_guards.py pre-push

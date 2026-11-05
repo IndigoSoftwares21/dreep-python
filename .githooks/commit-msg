@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Enforces Conventional Commits on the message being written.
+set -euo pipefail
+PY="$(git rev-parse --show-toplevel)/.venv/bin/python"; [ -x "$PY" ] || PY=python
+"$PY" scripts/git_guards.py commit-msg "$1"

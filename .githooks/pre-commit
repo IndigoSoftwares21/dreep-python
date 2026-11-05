@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Runs the full quality gate before every commit.
+set -euo pipefail
+PY="$(git rev-parse --show-toplevel)/.venv/bin/python"; [ -x "$PY" ] || PY=python
+"$PY" scripts/git_guards.py branch
+bash scripts/quality_gate.sh
