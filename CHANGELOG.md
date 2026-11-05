@@ -20,3 +20,6 @@ All notable changes to this project are documented here. The format follows
 - Typed exception hierarchy, including `DreepLimitError` billing metadata.
 - Retries for GET requests only, with exponential backoff and jitter, honouring
   `Retry-After`.
+
+[Unreleased]: https://github.com/IndigoSoftwares21/dreep-python/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/IndigoSoftwares21/dreep-python/releases/tag/v0.1.0

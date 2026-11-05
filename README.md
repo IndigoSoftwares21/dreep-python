@@ -9,13 +9,17 @@
 <p><strong>The official Python client for <a href="https://dreep.cloud">Dreep</a>, the universal media API.</strong><br>
 Upload, store, transform and deliver images, videos and documents from Python.</p>
 
-[![PyPI](https://img.shields.io/pypi/v/dreep?color=CB1C85&label=pypi)](https://pypi.org/project/dreep/)
-[![Python](https://img.shields.io/pypi/pyversions/dreep?color=4A063A)](https://pypi.org/project/dreep/)
+[![PyPI](https://img.shields.io/pypi/v/dreep?color=CB1C85&label=pypi&logo=pypi&logoColor=white&cacheSeconds=3600)](https://pypi.org/project/dreep/)
+[![Python](https://img.shields.io/pypi/pyversions/dreep?color=4A063A&logo=python&logoColor=white&cacheSeconds=3600)](https://pypi.org/project/dreep/)
+[![Downloads](https://img.shields.io/pypi/dm/dreep?color=CB1C85&label=downloads&cacheSeconds=3600)](https://pypistats.org/packages/dreep)
 [![CI](https://github.com/IndigoSoftwares21/dreep-python/actions/workflows/ci.yml/badge.svg)](https://github.com/IndigoSoftwares21/dreep-python/actions/workflows/ci.yml)
 [![Typed](https://img.shields.io/badge/typing-strict-CB1C85)](https://mypy.readthedocs.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-4A063A)](LICENSE)
 
 [Documentation](https://docs.dreep.cloud) ·
+[PyPI](https://pypi.org/project/dreep/) ·
+[Releases](https://github.com/IndigoSoftwares21/dreep-python/releases) ·
+[Changelog](CHANGELOG.md) ·
 [API reference](https://docs.dreep.cloud/api-reference/upload/upload-media) ·
 [Report a bug](https://github.com/IndigoSoftwares21/dreep-python/issues/new?template=bug_report.yml) ·
 [Request a feature](https://github.com/IndigoSoftwares21/dreep-python/issues/new?template=feature_request.yml)
@@ -41,7 +45,18 @@ Upload, store, transform and deliver images, videos and documents from Python.</
 pip install dreep
 ```
 
-Requires Python 3.10 or later. Create an API key on the **API Keys** page of the
+Or with [uv](https://docs.astral.sh/uv/) or [Poetry](https://python-poetry.org/):
+
+```bash
+uv add dreep
+```
+
+```bash
+poetry add dreep
+```
+
+Requires Python 3.10 or later. The [latest release](https://github.com/IndigoSoftwares21/dreep-python/releases/latest)
+lists what changed. Create an API key on the **API Keys** page of the
 [Dreep dashboard](https://dreep.cloud) and make it available to your app:
 
 ```bash
