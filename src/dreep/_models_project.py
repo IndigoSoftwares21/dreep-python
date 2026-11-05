@@ -19,8 +19,11 @@ class Folder(ApiModel):
     #: Slug path from the project root, e.g. ``avatars/2024/q1``.
     path: str | None = None
     parent_id: str | None = None
-    #: ``"public"``, ``"private"`` or ``"signed"``.
+    #: ``"public"``, ``"private"`` or ``"signed"``. Set on root folders only;
+    #: nested folders inherit it from the root of their tree.
     access_control_type: str | None = None
+    #: Default link lifetime for a signed folder, in seconds.
+    default_expiry_seconds: int | None = None
     raw: Mapping[str, Any] = raw_field()
 
 

@@ -6,6 +6,7 @@ change to the API touches one file rather than a scattering of string literals.
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 # --------------------------------------------------------------------------- #
@@ -125,3 +126,12 @@ PRESETS_WRAPPER: Final = "presets"
 ROOT_PARENT_ID: Final = "null"
 #: Connect timeout ceiling: a dead host should fail fast even for uploads.
 CONNECT_TIMEOUT: Final = 10.0
+
+# --------------------------------------------------------------------------- #
+# Server-side validation rules mirrored for early, clear errors
+# --------------------------------------------------------------------------- #
+
+#: Preset keys the API accepts (verified against the live API).
+PRESET_KEY_PATTERN: Final = re.compile(r"^[a-z0-9_]+$")
+#: Separates path segments in folder paths and object keys.
+PATH_SEPARATOR: Final = "/"

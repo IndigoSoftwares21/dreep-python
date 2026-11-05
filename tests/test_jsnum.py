@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from dreep._jsnum import js_json_value, js_number, to_wire
+from dreep._jsnum import js_number, to_wire
 
 # Expected values are what `String(n)` prints in any ECMAScript engine.
 JS_CASES = [
@@ -57,10 +57,3 @@ def test_to_wire(value: object, expected: str) -> None:
 def test_to_wire_rejects_unsupported_types() -> None:
     with pytest.raises(TypeError, match="Unsupported"):
         to_wire([1, 2])
-
-
-def test_js_json_value_leaves_non_ascii_unescaped() -> None:
-    assert js_json_value("café") == '"café"'
-    assert js_json_value(2.0) == "2"
-    with pytest.raises(TypeError):
-        js_json_value(None)

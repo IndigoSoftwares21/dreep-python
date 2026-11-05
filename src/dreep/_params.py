@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from . import _constants as c
 from ._decode import camel_case
 from ._jsnum import to_wire
 
@@ -44,10 +45,6 @@ def check_exclusive(**values: Any) -> None:
         raise ValueError(f"Pass at most one of {', '.join(values)}; got {', '.join(given)}.")
 
 
-#: A key containing this separator carries a folder prefix.
-_PATH_SEPARATOR = "/"
-
-
 def check_destination(*, folder: str | None, key: str | None, folder_id: str | None) -> None:
     """The destination rules shared by every upload-shaped endpoint.
 
@@ -57,5 +54,5 @@ def check_destination(*, folder: str | None, key: str | None, folder_id: str | N
     """
     check_exclusive(folder=folder, key=key)
     check_exclusive(folder=folder, folder_id=folder_id)
-    if folder_id is not None and key is not None and _PATH_SEPARATOR in key:
+    if folder_id is not None and key is not None and c.PATH_SEPARATOR in key:
         raise ValueError("A key with a folder prefix can't be combined with folder_id.")

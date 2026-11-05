@@ -1,7 +1,7 @@
-"""Transform parameter names and the server-side snapping tables.
+"""Transform parameter names and signed-URL query keys.
 
 Kept apart from the HTTP constants because they belong to one concern --
-describing and canonicalising transforms -- and change for different reasons.
+describing transforms -- and change for different reasons.
 """
 
 from __future__ import annotations
@@ -11,9 +11,7 @@ from typing import Final
 from ._decode import camel_case
 
 #: Every transform key the SDK accepts, in snake_case. Must match the keys of
-#: :class:`dreep.types.Transform`; a test enforces it. The *order* is
-#: load-bearing: the signed keys appear in the API's canonical order, and
-#: CANONICAL_PARAM_ORDER below is derived from it.
+#: :class:`dreep.types.Transform`; a test enforces it.
 TRANSFORM_KEYS: Final = (
     "format",
     "width",
@@ -49,33 +47,8 @@ CROP_KEY: Final = "crop"
 CROP_PARTS: Final = 4
 CROP_SEPARATOR: Final = ","
 
-# Copied from the Dreep server (src/services/sharp/constants.ts) by way of the
-# official Node SDK.
-#
-# The API snaps these parameters onto fixed breakpoints before hashing a cache
-# key -- and before verifying a signed URL's signature. Signing must apply the
-# identical snapping or the link 401s, so these tables are duplicated state:
-# changing them on the server without changing them here silently breaks every
-# signed URL that carries a transform. The pinned-signature tests catch drift.
-WIDTH_BREAKPOINTS: Final = (
-    16, 32, 64, 128, 256, 384, 512, 640, 750, 828, 960, 1080, 1200, 1440, 1920,
-    2560, 3200, 4000,
-)  # fmt: skip
-QUALITY_BREAKPOINTS: Final = (50, 65, 75, 85, 95, 100)
-DPR_BREAKPOINTS: Final = (1, 2, 3)
-
-#: Keys that ride along on a signed URL without being part of the signature.
-UNSIGNED_KEYS: Final = frozenset(
-    {"crop", "trim_start", "trim_end", "video_codec", "fps", "page", PRESET_KEY}
-)
-#: Key order the API serialises canonical transform params in before signing.
-#: The signature is over that exact JSON string, so this order is load-bearing.
-CANONICAL_PARAM_ORDER: Final = tuple(k for k in TRANSFORM_KEYS if k not in UNSIGNED_KEYS)
-#: Snapped up to the next breakpoint, so a request never gets something smaller.
-SNAP_UP: Final = {"width": WIDTH_BREAKPOINTS, "height": WIDTH_BREAKPOINTS, "dpr": DPR_BREAKPOINTS}
-#: Snapped to the nearest breakpoint: overshooting quality costs bytes for nothing.
-SNAP_NEAREST: Final = {"quality": QUALITY_BREAKPOINTS}
-
+#: The signed payload is "{asset id}:{expiry}".
+SIGNATURE_SEPARATOR: Final = ":"
 QUERY_EXPIRES: Final = "exp"
 QUERY_SIGNATURE: Final = "sig"
 

@@ -34,7 +34,8 @@ class AsyncProjectMixin(AsyncCore):
         """Creates a folder: one by ``name``, or a whole chain by ``path``.
 
         Uploads create folders on demand, so this is only needed to set the
-        access control before anything lands. Subfolders inherit it.
+        access control before anything lands. Access control can only be set on
+        a root folder (``name=`` with no parent); everything beneath inherits it.
         """
         op = op_create_folder(
             name=name,
@@ -71,7 +72,10 @@ class AsyncProjectMixin(AsyncCore):
         transform: Transform,
         timeout: TimeoutArg = NOT_GIVEN,
     ) -> Preset:
-        """Saves a named transform; apply it anywhere with ``{"preset": key}``."""
+        """Saves a named transform; apply it anywhere with ``{"preset": key}``.
+
+        ``key`` may contain lowercase letters, numbers and underscores only.
+        """
         return await self._run(op_create_preset(key=key, name=name, transform=transform), timeout)
 
     async def list_presets(self, *, timeout: TimeoutArg = NOT_GIVEN) -> list[Preset]:

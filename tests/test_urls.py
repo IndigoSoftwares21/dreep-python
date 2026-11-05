@@ -64,21 +64,26 @@ def test_signed_url_without_transform_signs_id_and_expiry() -> None:
     assert signed() == f"{ASSET['url']}?exp={EXP}&sig={sig}"
 
 
-def test_signed_url_signs_snapped_params_and_appends_exp_sig_last() -> None:
-    payload = f'{ASSET_ID}:{EXP}:{{"format":"webp","width":828}}'
-    url = signed({"width": 803, "format": "webp"})
-    assert url == f"{ASSET['url']}?format=webp&width=803&exp={EXP}&sig={expected_sig(payload)}"
+@pytest.mark.parametrize(
+    "transform",
+    [
+        {"width": 803, "format": "webp"},
+        {"height": 500, "dpr": 1.5, "fit": "cover"},
+        {"preset": "thumbnail"},
+        {"crop": "1,2,3,4", "quality": 82},
+    ],
+)
+def test_signature_covers_id_and_expiry_only(transform: dict[str, object]) -> None:
+    """Matches the API reference and the live API: transforms are not signed."""
+    url = signed(transform)
+    assert url.endswith(f"&exp={EXP}&sig={expected_sig(f'{ASSET_ID}:{EXP}')}")
+    assert url.startswith(build_url(ASSET, transform))
 
 
-def test_signed_url_with_preset_only() -> None:
-    payload = f'{ASSET_ID}:{EXP}:{{"p":"thumbnail"}}'
-    assert signed({"preset": "thumbnail"}).endswith(f"&sig={expected_sig(payload)}")
-
-
-def test_unsigned_params_ride_along_but_are_not_signed() -> None:
-    url = signed({"crop": "1,2,3,4"})
-    assert "crop=1%2C2%2C3%2C4" in url
-    assert url.endswith(f"sig={expected_sig(f'{ASSET_ID}:{EXP}')}")
+def test_transform_params_come_before_exp_and_sig() -> None:
+    assert signed({"width": 803, "format": "webp"}).startswith(
+        f"{ASSET['url']}?format=webp&width=803&exp="
+    )
 
 
 def test_signed_url_accepts_timedelta() -> None:

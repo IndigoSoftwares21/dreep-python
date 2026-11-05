@@ -34,7 +34,7 @@ Upload, store, transform and deliver images, videos and documents from Python.</
 | :- | :- |
 | **Sync and async** | `Dreep` and `AsyncDreep` share one API. Async runs on asyncio and trio. |
 | **Fully typed** | Ships `py.typed`. Transforms are a `TypedDict` with `Literal` values, so `fit="squish"` fails type-checking before it ships. |
-| **Signed URLs that work** | The SDK rounds sizes the same way the API does before it checks a signature, so a transformed signed link doesn't fail with a `401`. |
+| **Signed URLs** | Time-limited links for private media, signed exactly as the API reference specifies and tested against the live API. |
 | **Large files without the memory** | `upload_presigned()` streams from disk straight to storage. |
 | **Safe by default** | Only reads are retried. Your API key goes only to the API, and never appears in logs or reprs. |
 | **Lightweight** | One dependency, [`httpx`](https://www.python-httpx.org/). |
@@ -176,29 +176,36 @@ upload = client.presign_upload(content_type="video/mp4", size_bytes=84_000_000)
 asset = client.confirm_upload(upload.id)
 ```
 
-### Signed URLs, done the way the API checks them
+### Signed URLs for private media
 
 Files in a **signed** folder can only be fetched with a link that carries an expiry time
-(`exp`) and an HMAC signature (`sig`). When that link also includes a transform, the API
-rounds some values to fixed sizes before it checks the signature:
-
-| You ask for | The API checks against |
-| :- | :- |
-| `width=803` | `828` (rounded up to the next fixed width) |
-| `quality=82` | `85` (rounded to the nearest fixed quality) |
-| `dpr=1.5` | `2` |
-
-If you sign `803` by hand, the API checks `828` and returns `401`, with nothing in the URL
-to tell you why. `client.signed_url()` does the same rounding before signing, so the link
-works:
+(`exp`) and an HMAC-SHA256 signature (`sig`) made with your project's URL Signing Secret.
+`signed_url()` builds that link locally, without a network call:
 
 ```python
 client = Dreep(signing_secret="...")  # or set DREEP_SIGNING_SECRET
-link = client.signed_url(asset, expires_in=3600, transform={"width": 803})
+
+link = client.signed_url(asset, expires_in=3600)
+# https://cdn.dreep.cloud/…/<id>.png?exp=1774003600&sig=6b10e0…
+
+thumb = client.signed_url(asset, expires_in=3600, transform={"width": 400, "format": "webp"})
 ```
+
+The signature covers the asset and the expiry time, but not the transform. One signed link
+can therefore be resized by a frontend (`&width=…`) without being signed again. Once the
+link expires, or if anyone changes `exp` or `sig`, the API answers `401`.
 
 Anyone holding a signed link can fetch the file until it expires, without an API key, so
 keep expiry times short.
+
+> [!NOTE]
+> Access control is set on **top-level folders** and inherited by everything beneath them.
+> Create the signed folder first, then upload under it:
+>
+> ```python
+> premium = client.create_folder(name="premium", access_control_type="signed")
+> asset = client.upload(Path("lesson.mp4"), key="premium/course-1/lesson-1.mp4")
+> ```
 
 ## Recipes
 
@@ -240,7 +247,7 @@ client.delete_media(asset.id)  # also removes its cached transforms
 
 ```python
 client.create_preset(
-    key="thumb",
+    key="thumb",  # lowercase letters, numbers and underscores
     name="Thumbnail",
     transform={"width": 200, "height": 200, "fit": "cover", "format": "webp"},
 )

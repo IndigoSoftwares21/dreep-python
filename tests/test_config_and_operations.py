@@ -73,6 +73,16 @@ def test_connect_timeout_is_always_bounded() -> None:
         lambda: op_list_folders(path="a", parent_id="b", root_only=False),
         lambda: op_list_media(page=None, limit=None, folder="a", folder_id="b", recursive=None),
         lambda: op_create_preset(key="", name="n", transform={"width": 1}),
+        lambda: op_create_preset(key="has-hyphens", name="n", transform={"width": 1}),
+        lambda: op_create_preset(key="Upper", name="n", transform={"width": 1}),
+        lambda: op_create_folder(
+            name=None, path="a/b", parent_id=None, parent_path=None,
+            access_control_type="signed", default_expiry_seconds=None,
+        ),
+        lambda: op_create_folder(
+            name="b", path=None, parent_id=None, parent_path="a",
+            access_control_type="private", default_expiry_seconds=None,
+        ),
         lambda: op_create_preset(key="k", name="n", transform={}),
         lambda: op_presign_upload(
             content_type="", size_bytes=1, filename=None, folder=None, key=None, folder_id=None,
@@ -91,3 +101,15 @@ def test_connect_timeout_is_always_bounded() -> None:
 def test_operations_reject_invalid_arguments_before_sending(call: object) -> None:
     with pytest.raises(ValueError, match=r"\w"):  # each case has its own message
         call()  # type: ignore[operator]
+
+
+def test_root_folder_may_set_access_control() -> None:
+    op = op_create_folder(
+        name="premium", path=None, parent_id=None, parent_path=None,
+        access_control_type="signed", default_expiry_seconds=600,
+    )  # fmt: skip
+    assert op.request.json == {
+        "name": "premium",
+        "accessControlType": "signed",
+        "defaultExpirySeconds": 600,
+    }

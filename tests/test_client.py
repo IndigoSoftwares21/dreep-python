@@ -151,19 +151,19 @@ def test_delete_returns_none_and_rejects_path_injection(make_client: MakeClient)
 
 def test_folders_presets_usage(make_client: MakeClient) -> None:
     rec = Recorder(
-        envelope({"id": "f1", "path": "2026/q1", "name": "q1"}),
+        envelope({"id": "f1", "path": "premium", "name": "premium", "defaultExpirySeconds": 600}),
         envelope({"folders": [], "currentFolder": None}),
         envelope({"id": "p1", "key": "thumb"}),
         envelope([{"id": "p1", "key": "thumb", "params": {"width": 200}}]),
         envelope({"storageBytes": "100", "imageCount": 1, "fileCount": 2, "folderCount": 3}),
     )
     client = make_client(rec)
-    folder = client.create_folder(path="2026/q1", access_control_type="signed")
+    folder = client.create_folder(name="premium", access_control_type="signed")
     client.list_folders(root_only=True)
     client.create_preset(key="thumb", name="Thumb", transform={"width": 200, "fit": "cover"})
     presets = client.list_presets()
     usage = client.get_usage()
-    assert body_json(rec.requests[0]) == {"path": "2026/q1", "accessControlType": "signed"}
+    assert body_json(rec.requests[0]) == {"name": "premium", "accessControlType": "signed"}
     assert rec.requests[1].url.params["parentId"] == "null"
     assert body_json(rec.requests[2]) == {
         "key": "thumb",
@@ -171,7 +171,8 @@ def test_folders_presets_usage(make_client: MakeClient) -> None:
         "width": 200,
         "fit": "cover",
     }
-    assert (folder.id, presets[0].params, usage.storage_bytes) == ("f1", {"width": 200}, 100)
+    assert (folder.id, folder.default_expiry_seconds) == ("f1", 600)
+    assert (presets[0].params, usage.storage_bytes) == ({"width": 200}, 100)
 
 
 def test_processing_endpoints_unwrap_asset(make_client: MakeClient) -> None:

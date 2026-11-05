@@ -48,6 +48,14 @@ def op_create_folder(
     if path is not None and (parent_id is not None or parent_path is not None):
         raise ValueError("path can't be combined with parent_id or parent_path.")
     check_exclusive(parent_id=parent_id, parent_path=parent_path)
+    in_path = path is not None and c.PATH_SEPARATOR in path
+    nested = in_path or parent_id is not None or parent_path is not None
+    if nested and access_control_type is not None:
+        raise ValueError(
+            "Access control can only be set on a root folder; nested folders inherit it "
+            "from the root of their tree. Create the root with access_control_type, then "
+            "upload into a path beneath it."
+        )
     body = wire_body(
         name=name,
         path=path,
@@ -68,8 +76,12 @@ def op_list_folders(
 
 
 def op_create_preset(*, key: str, name: str, transform: Transform) -> Operation[Preset]:
-    if not key or not name:
-        raise ValueError("key and name are required.")
+    if not name:
+        raise ValueError("name is required.")
+    if not c.PRESET_KEY_PATTERN.match(key or ""):
+        raise ValueError(
+            f"Invalid preset key {key!r}: use lowercase letters, numbers and underscores only."
+        )
     wire = normalize_transform(transform)
     if not wire:
         raise ValueError("A preset needs a non-empty transform.")

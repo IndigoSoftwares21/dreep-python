@@ -17,7 +17,7 @@ src/dreep/
 
   # pure layer: no I/O libraries (enforced by RULE-007)
   _constants.py            hosts, paths, headers, retry/timeout defaults
-  _transform_constants.py  transform keys, server snapping tables
+  _transform_constants.py  transform keys, signed-URL query keys
   _errors.py               exception hierarchy
   _error_mapping.py        HTTP status/body -> exception (the only place)
   _coerce.py, _decode.py   lenient JSON -> dataclass decoding
@@ -58,8 +58,9 @@ A request flows: public method → `op_*` builder (pure: validates, returns an
 7. **Never send the API key anywhere but the API.** Absolute URLs (CDN fetches,
    presigned storage PUTs) go out without `Authorization`. Never log URLs that
    may be signed.
-8. **Signing parity.** `_transform_constants` mirrors server tables. Changing
-   breakpoints or canonical order without the server breaks every signed URL.
+8. **Follow the API reference, verified live.** Signed URLs sign `"{id}:{exp}"`
+   only, as the reference specifies; signing transform values makes the live API
+   reject the link. When docs and other SDKs disagree, test against the API.
 9. **Every suppression names its code (RULE-010).** `# type: ignore[code]`,
    `# noqa: CODE`, `# allow-magic: reason`.
 10. **Tests ship with behaviour.** Bug fixes get a regression test. Coverage

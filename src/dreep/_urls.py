@@ -20,7 +20,7 @@ from . import _constants as c
 from . import _transform_constants as t
 from ._errors import DreepError
 from ._jsnum import to_wire
-from ._transform import TransformInput, canonical_transform_json, normalize_transform
+from ._transform import TransformInput, normalize_transform
 
 __all__ = ["build_signed_url", "build_url", "target_id", "target_url"]
 
@@ -125,18 +125,18 @@ def build_signed_url(
 ) -> str:
     """A time-limited URL for an asset in a signed folder.
 
-    The signature is HMAC-SHA256 (hex) over ``"{id}:{exp}"``, or
-    ``"{id}:{exp}:{params}"`` when a transform or preset is involved -- where
-    ``params`` is the *canonical* form the API verifies, not the raw values.
+    The signature is HMAC-SHA256 (hex) over ``"{id}:{exp}"`` with the project's
+    URL Signing Secret, as the API reference specifies. It locks the asset and
+    the expiry, not the transform: transform parameters ride along unsigned,
+    so a frontend may adjust them without a new signature. (Verified against
+    the live API: signing transform values makes the API reject the link.)
     """
     if not signing_secret:
         raise DreepError(_SIGNING_REQUIRED_MESSAGE)
     asset_id = target_id(target)
     expires = math.floor(time.time() if now is None else now) + _expiry_seconds(expires_in)
-    params = canonical_transform_json(transform)
-    payload = ":".join([asset_id, str(expires), *([params] if params is not None else [])])
+    payload = f"{asset_id}{t.SIGNATURE_SEPARATOR}{expires}"
     signature = hmac.new(signing_secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    # exp and sig go after the sorted transform params rather than being sorted
-    # in among them -- the layout the official SDKs produce.
+    # exp and sig go after the sorted transform params rather than among them.
     updates = [(t.QUERY_EXPIRES, str(expires)), (t.QUERY_SIGNATURE, signature)]
     return _with_params(build_url(target, transform), updates, sort=False)

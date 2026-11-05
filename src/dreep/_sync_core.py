@@ -153,9 +153,8 @@ class SyncCore:
         Args:
             asset: The asset itself (``id`` and ``url``); the id is what's signed.
             expires_in: Seconds (or a ``timedelta``) until the link stops working.
-            transform: A transform to sign alongside the asset. Width, height,
-                quality and dpr are snapped onto the API's breakpoints first,
-                exactly as the API does before verifying.
+            transform: A transform to apply. The signature covers the asset and
+                expiry only, so the transform is not locked by it.
         """
         return build_signed_url(
             asset,

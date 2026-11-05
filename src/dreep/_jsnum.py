@@ -1,20 +1,18 @@
 """Rendering values exactly as JavaScript does.
 
-The API is a JavaScript service: it reads query parameters as JavaScript
-strings and verifies signatures over ``JSON.stringify`` output. A Python value
-rendered differently -- ``2.0`` instead of ``2``, ``1e-07`` instead of
-``1e-7``, ``True`` instead of ``true`` -- yields a different cache key or a
-signature mismatch. Everything that becomes a wire string goes through here.
+The API is a JavaScript service that reads query parameters and form fields
+as JavaScript renders values. A Python value rendered differently -- ``2.0``
+instead of ``2``, ``True`` instead of ``true`` -- would split CDN cache keys or
+fail validation. Everything that becomes a wire string goes through here.
 """
 
 from __future__ import annotations
 
-import json
 import math
 from decimal import Decimal
 from typing import Any, Final
 
-__all__ = ["js_json_value", "js_number", "to_wire"]
+__all__ = ["js_number", "to_wire"]
 
 #: ECMAScript switches to exponent notation at 10**21 and below 10**-6.
 _MAX_PLAIN_EXPONENT: Final = 21
@@ -79,12 +77,3 @@ def to_wire(value: Any) -> str:
     if isinstance(value, str):
         return value
     raise TypeError(f"Unsupported parameter value {value!r} ({type(value).__name__}).")
-
-
-def js_json_value(value: Any) -> str:
-    """A scalar as ``JSON.stringify`` renders it (non-ASCII left unescaped)."""
-    if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=False)
-    if isinstance(value, (bool, int, float)):
-        return to_wire(value)
-    raise TypeError(f"Cannot encode {value!r} as a JSON scalar.")
