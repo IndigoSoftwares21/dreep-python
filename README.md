@@ -56,6 +56,151 @@ async with AsyncDreep() as client:
 > project. For browser uploads, presign on your server (see below) and let the browser
 > PUT the bytes.
 
+## How it works
+
+### One original, many variants
+
+Dreep stores each file once. Every resized, cropped or converted version is produced on
+request from a URL, then cached on the CDN. You don't have to transform files on upload:
+keep the original and ask for what you need when you deliver it.
+
+```mermaid
+flowchart LR
+    A[Your app] -- "client.upload(Path('hero.jpg'))" --> B[(Dreep storage<br/>hero.jpg, stored once)]
+    B --> C{{"CDN fetch URL<br/>…/fetch/&lt;id&gt;"}}
+    C -- "?width=400&format=webp" --> D[400px WebP]
+    C -- "?width=1200&format=avif" --> E[1200px AVIF]
+    C -- "?format=txt" --> F[OCR text]
+    C -- "?format=pdf" --> G[PDF conversion]
+```
+
+`client.url(asset, {...})` builds those URLs locally without any network call, so it's
+safe to call while rendering a page:
+
+```python
+client.url(asset, {"width": 400, "format": "webp"})
+# https://cdn.dreep.cloud/api/v1/fetch/2f928a3f….webp?format=webp&width=400
+```
+
+### What happens when you call a method
+
+Every method follows the same path through the SDK:
+
+```mermaid
+sequenceDiagram
+    participant You as Your code
+    participant SDK as Dreep client
+    participant API as api.dreep.cloud
+    You->>SDK: client.list_media(folder="avatars")
+    SDK->>SDK: validate arguments, build the request<br/>(folder_id → folderId, Bearer auth)
+    SDK->>API: GET /api/v1/media?folder=avatars
+    alt 429 or 5xx (reads only)
+        API-->>SDK: 503
+        SDK->>SDK: wait (exponential backoff, honours Retry-After)
+        SDK->>API: GET again (up to 2 retries)
+    end
+    API-->>SDK: 200 {"data": {...}}
+    SDK-->>You: MediaPage (typed, sizes as int)
+    Note over SDK,You: a 4xx raises a typed error instead,<br/>e.g. DreepNotFoundError
+```
+
+- **Arguments are checked before anything is sent.** Passing both `folder=` and
+  `folder_id=`, or misspelling a transform key such as `"widht"`, raises immediately
+  instead of quietly returning the original.
+- **Responses come back as typed, frozen dataclasses** with snake_case attributes. Numbers
+  the API sends as strings (`sizeBytes: "245000"`) are converted to `int`. Any field the
+  SDK doesn't model yet is still available in `.raw`.
+- **Only reads are retried.** Retrying an upload could store it twice and bill it twice.
+
+### Large files go straight to storage
+
+`upload()` sends the file through the API in one request, which suits files up to a few
+hundred MB. `upload_presigned()` sends the bytes directly to storage instead, streaming
+them from disk:
+
+```mermaid
+sequenceDiagram
+    participant You as Your server
+    participant API as Dreep API
+    participant S as Storage
+    You->>API: POST /upload/presign (size, type, folder)
+    API-->>You: id + short-lived uploadUrl
+    You->>S: PUT bytes, streamed in 1 MB chunks (no API key sent)
+    You->>API: POST /upload/{id}/confirm
+    API-->>You: 409 while the bytes settle, so the SDK retries
+    API-->>You: Asset (status "ready")
+```
+
+`client.upload_presigned(Path("video.mp4"))` runs all three steps. For uploads from a
+browser, call `presign_upload()` on your server, have the browser PUT the bytes, then call
+`confirm_upload()`. Your API key never leaves your server.
+
+### Signed URLs, done the way the API checks them
+
+Files in a **signed** folder can only be fetched with a link that carries an expiry time
+(`exp`) and an HMAC signature (`sig`). When that link also includes a transform, the API
+rounds some values to fixed sizes before it checks the signature:
+
+| You ask for | The API checks against |
+| :- | :- |
+| `width=803` | `828` (rounded up to the next fixed width) |
+| `quality=82` | `85` (rounded to the nearest fixed quality) |
+| `dpr=1.5` | `2` |
+
+If you sign `803` by hand, the API checks `828` and returns `401`, with nothing in the URL
+to tell you why. `client.signed_url()` does the same rounding before signing, so the link
+works:
+
+```python
+link = client.signed_url(asset, expires_in=3600, transform={"width": 803})
+# …?width=803&exp=1774003600&sig=6b10e0…   (signed as width 828)
+```
+
+## Recipes
+
+```python
+from pathlib import Path
+from dreep import Dreep
+
+client = Dreep()
+
+# Folders: uploads create them as needed. Create one yourself only to set access control.
+client.create_folder(path="courses/premium", access_control_type="signed")
+
+# Upload into a nested path, creating any missing folders
+asset = client.upload(Path("lesson.mp4"), key="courses/premium/lesson-1.mp4")
+
+# Page through everything, one request per page, fetched lazily
+for item in client.list_all_media(folder="courses", recursive=True):
+    print(item.filename, item.size_bytes)
+
+# Presets: save a transform once, then refer to it by name
+client.create_preset(
+    key="thumb", name="Thumbnail",
+    transform={"width": 200, "height": 200, "fit": "cover", "format": "webp"},
+)
+client.url(asset, {"preset": "thumb"})
+
+# Background removal: one cutout can be served on any background colour
+cutout = client.remove_background(Path("product.jpg"), folder="products")
+client.url(cutout, {"bg": "ffffff"})
+client.url(cutout, {"bg": "000000"})
+
+# OCR: on a new upload, or on an asset that's already stored
+result = client.extract_text(Path("invoice.pdf"), include_blocks=True)
+print(result.text)
+print(client.fetch_text(asset))  # cached after the first read
+
+# Document conversion
+pdf = client.convert_document(Path("contract.docx"), format="pdf", folder="contracts")
+page_two = client.convert_document(Path("deck.pdf"), format="png", page=2)
+
+# Usage and cleanup
+usage = client.get_usage()
+print(f"{usage.storage_bytes / 1024**3:.2f} GB across {usage.image_count} images")
+client.delete_media(asset.id)
+```
+
 ## Methods
 
 | Method | Does | Endpoint |

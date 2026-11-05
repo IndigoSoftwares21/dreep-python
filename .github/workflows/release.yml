@@ -1,5 +1,6 @@
 name: Release
 
+# Push a tag like v0.1.0 to publish. The tag must match src/dreep/_version.py.
 on:
   push:
     tags: ["v*.*.*"]
@@ -8,12 +9,9 @@ permissions:
   contents: read
 
 jobs:
-  publish:
-    name: Build and publish to PyPI
+  build:
+    name: Build and verify
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write # PyPI trusted publishing; no API token stored
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,7 +20,54 @@ jobs:
       - name: Tag matches package version
         run: |
           version=$(python -c "import re;print(re.search(r'\"(.+)\"', open('src/dreep/_version.py').read())[1])")
+          echo "package version: $version, tag: ${GITHUB_REF_NAME}"
           test "v$version" = "${GITHUB_REF_NAME}"
-      - run: python -m pip install build
-      - run: python -m build
+      - name: Quality gate
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . --group dev
+          bash scripts/quality_gate.sh
+        env:
+          PYTHON: python
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install build twine
+          python -m build
+          python -m twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/dreep/
+    permissions:
+      id-token: write # trusted publishing: PyPI trusts this workflow, no token stored
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: GitHub Release
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Create release with the built distributions
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
