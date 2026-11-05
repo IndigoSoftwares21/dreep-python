@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-05
+
 ### Fixed
 
 - `signed_url()` now signs `"{id}:{exp}"` only, as the API reference specifies. 0.1.0
@@ -39,5 +41,6 @@ All notable changes to this project are documented here. The format follows
 - Retries for GET requests only, with exponential backoff and jitter, honouring
   `Retry-After`.
 
-[Unreleased]: https://github.com/IndigoSoftwares21/dreep-python/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/IndigoSoftwares21/dreep-python/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/IndigoSoftwares21/dreep-python/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/IndigoSoftwares21/dreep-python/releases/tag/v0.1.0
