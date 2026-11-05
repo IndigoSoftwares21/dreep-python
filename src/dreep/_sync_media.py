@@ -78,10 +78,9 @@ class MediaMixin(UploadsMixin):
             for item in listing.assets:
                 yield item
             seen += len(listing.assets)
-            total = listing.pagination.total if listing.pagination else 0
             # Stop on a short page *and* on the reported total: either alone
             # would loop forever if the other were missing or wrong.
-            if len(listing.assets) < limit or seen >= total:
+            if len(listing.assets) < limit or seen >= listing.pagination.total:
                 return
             page += 1
 

@@ -1,17 +1,39 @@
-# dreep-python
+<div align="center">
 
-The official Python SDK for [Dreep](https://dreep.cloud): media storage, image and
-video transformation, document conversion, OCR and background removal.
+<a href="https://dreep.cloud">
+  <img src="https://raw.githubusercontent.com/IndigoSoftwares21/dreep-python/main/.github/assets/dreep-logo.svg" alt="Dreep" width="96" height="107">
+</a>
 
-- **Sync and async.** `Dreep` and `AsyncDreep` have identical APIs (asyncio and trio).
-- **Fully typed.** Ships `py.typed`; transforms are a `TypedDict` with `Literal` values,
-  so `fit="squish"` is a type error.
-- **Correct signed URLs.** The API snaps width, height, quality and dpr onto fixed sizes
-  before it verifies a signature. The SDK applies the same snapping, so a link for
-  `width=803` is signed the way the API will check it (as `828`).
-- **Safe by default.** Only reads are retried. The API key is never sent anywhere except
-  the API, and it never appears in reprs or logs.
-- **One dependency:** `httpx`.
+<h1>Dreep Python SDK</h1>
+
+<p><strong>The official Python client for <a href="https://dreep.cloud">Dreep</a>, the universal media API.</strong><br>
+Upload, store, transform and deliver images, videos and documents from Python.</p>
+
+[![PyPI](https://img.shields.io/pypi/v/dreep?color=CB1C85&label=pypi)](https://pypi.org/project/dreep/)
+[![Python](https://img.shields.io/pypi/pyversions/dreep?color=4A063A)](https://pypi.org/project/dreep/)
+[![CI](https://github.com/IndigoSoftwares21/dreep-python/actions/workflows/ci.yml/badge.svg)](https://github.com/IndigoSoftwares21/dreep-python/actions/workflows/ci.yml)
+[![Typed](https://img.shields.io/badge/typing-strict-CB1C85)](https://mypy.readthedocs.io/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-4A063A)](LICENSE)
+
+[Documentation](https://docs.dreep.cloud) ·
+[API reference](https://docs.dreep.cloud/api-reference/upload/upload-media) ·
+[Report a bug](https://github.com/IndigoSoftwares21/dreep-python/issues/new?template=bug_report.yml) ·
+[Request a feature](https://github.com/IndigoSoftwares21/dreep-python/issues/new?template=feature_request.yml)
+
+</div>
+
+---
+
+## Why this SDK
+
+| | |
+| :- | :- |
+| **Sync and async** | `Dreep` and `AsyncDreep` share one API. Async runs on asyncio and trio. |
+| **Fully typed** | Ships `py.typed`. Transforms are a `TypedDict` with `Literal` values, so `fit="squish"` fails type-checking before it ships. |
+| **Signed URLs that work** | The SDK rounds sizes the same way the API does before it checks a signature, so a transformed signed link doesn't fail with a `401`. |
+| **Large files without the memory** | `upload_presigned()` streams from disk straight to storage. |
+| **Safe by default** | Only reads are retried. Your API key goes only to the API, and never appears in logs or reprs. |
+| **Lightweight** | One dependency, [`httpx`](https://www.python-httpx.org/). |
 
 ## Installation
 
@@ -19,7 +41,12 @@ video transformation, document conversion, OCR and background removal.
 pip install dreep
 ```
 
-Requires Python 3.10 or later.
+Requires Python 3.10 or later. Create an API key on the **API Keys** page of the
+[Dreep dashboard](https://dreep.cloud) and make it available to your app:
+
+```bash
+export DREEP_API_KEY="drp_live_..."
+```
 
 ## Quickstart
 
@@ -27,21 +54,20 @@ Requires Python 3.10 or later.
 from pathlib import Path
 from dreep import Dreep
 
-client = Dreep()  # reads DREEP_API_KEY; or Dreep("drp_live_…")
+client = Dreep()  # reads DREEP_API_KEY
 
-# Upload, resized and converted on the way in
-asset = client.upload(
-    Path("hero.jpg"),
-    folder="marketing/2026",
-    transform={"width": 1200, "format": "webp"},
-)
-print(asset.url)
+# 1. Upload: the original is stored once
+asset = client.upload(Path("hero.jpg"), folder="marketing/2026")
 
-# Build a smaller variant; no network call
-client.url(asset, {"width": 400})
+# 2. Deliver any size or format from that one original. No network call.
+thumbnail = client.url(asset, {"width": 400, "format": "webp"})
+banner = client.url(asset, {"width": 1600, "height": 600, "fit": "cover"})
+
+print(asset.url)   # https://cdn.dreep.cloud/api/v1/fetch/2f928a3f….jpg
+print(thumbnail)   # …/fetch/2f928a3f….jpg?format=webp&width=400
 ```
 
-Async works the same way:
+The async client works the same way:
 
 ```python
 from dreep import AsyncDreep
@@ -49,12 +75,13 @@ from dreep import AsyncDreep
 async with AsyncDreep() as client:
     asset = await client.upload(Path("hero.jpg"))
     async for item in client.list_all_media(folder="marketing"):
-        print(item.filename)
+        print(item.filename, item.size_bytes)
 ```
 
-> **Keep your API key server-side.** It can read, upload and delete every asset in the
-> project. For browser uploads, presign on your server (see below) and let the browser
-> PUT the bytes.
+> [!IMPORTANT]
+> Your API key can read, upload and delete every asset in the project. Keep it on the
+> server. For uploads from a browser, use the [presigned flow](#large-files-go-straight-to-storage):
+> your server hands the browser a short-lived upload URL instead.
 
 ## How it works
 
@@ -75,16 +102,9 @@ flowchart LR
 ```
 
 `client.url(asset, {...})` builds those URLs locally without any network call, so it's
-safe to call while rendering a page:
-
-```python
-client.url(asset, {"width": 400, "format": "webp"})
-# https://cdn.dreep.cloud/api/v1/fetch/2f928a3f….webp?format=webp&width=400
-```
+safe to call while rendering a page.
 
 ### What happens when you call a method
-
-Every method follows the same path through the SDK:
 
 ```mermaid
 sequenceDiagram
@@ -131,9 +151,15 @@ sequenceDiagram
     API-->>You: Asset (status "ready")
 ```
 
-`client.upload_presigned(Path("video.mp4"))` runs all three steps. For uploads from a
-browser, call `presign_upload()` on your server, have the browser PUT the bytes, then call
-`confirm_upload()`. Your API key never leaves your server.
+```python
+# Everything on your server
+asset = client.upload_presigned(Path("video.mp4"), folder="uploads/2026")
+
+# Upload from a browser: presign on the server, the browser PUTs the bytes, confirm on the server
+upload = client.presign_upload(content_type="video/mp4", size_bytes=84_000_000)
+#   ... send upload.id and upload.upload_url to the browser ...
+asset = client.confirm_upload(upload.id)
+```
 
 ### Signed URLs, done the way the API checks them
 
@@ -152,60 +178,120 @@ to tell you why. `client.signed_url()` does the same rounding before signing, so
 works:
 
 ```python
+client = Dreep(signing_secret="...")  # or set DREEP_SIGNING_SECRET
 link = client.signed_url(asset, expires_in=3600, transform={"width": 803})
-# …?width=803&exp=1774003600&sig=6b10e0…   (signed as width 828)
 ```
+
+Anyone holding a signed link can fetch the file until it expires, without an API key, so
+keep expiry times short.
 
 ## Recipes
 
+<details open>
+<summary><strong>Folders and access control</strong></summary>
+
 ```python
-from pathlib import Path
-from dreep import Dreep
-
-client = Dreep()
-
-# Folders: uploads create them as needed. Create one yourself only to set access control.
+# Uploads create folders as needed. Create one yourself only to set its access control.
 client.create_folder(path="courses/premium", access_control_type="signed")
 
 # Upload into a nested path, creating any missing folders
 asset = client.upload(Path("lesson.mp4"), key="courses/premium/lesson-1.mp4")
 
-# Page through everything, one request per page, fetched lazily
+# Every folder in the project, each with its full path
+for folder in client.list_folders():
+    print(folder.path, folder.access_control_type)
+```
+
+</details>
+
+<details>
+<summary><strong>Listing and deleting</strong></summary>
+
+```python
+page = client.list_media(folder="courses", page=1, limit=50)
+print(f"{len(page)} of {page.pagination.total}")
+
+# Every asset across every page, one request per page, fetched lazily
 for item in client.list_all_media(folder="courses", recursive=True):
     print(item.filename, item.size_bytes)
 
-# Presets: save a transform once, then refer to it by name
-client.create_preset(
-    key="thumb", name="Thumbnail",
-    transform={"width": 200, "height": 200, "fit": "cover", "format": "webp"},
-)
-client.url(asset, {"preset": "thumb"})
-
-# Background removal: one cutout can be served on any background colour
-cutout = client.remove_background(Path("product.jpg"), folder="products")
-client.url(cutout, {"bg": "ffffff"})
-client.url(cutout, {"bg": "000000"})
-
-# OCR: on a new upload, or on an asset that's already stored
-result = client.extract_text(Path("invoice.pdf"), include_blocks=True)
-print(result.text)
-print(client.fetch_text(asset))  # cached after the first read
-
-# Document conversion
-pdf = client.convert_document(Path("contract.docx"), format="pdf", folder="contracts")
-page_two = client.convert_document(Path("deck.pdf"), format="png", page=2)
-
-# Usage and cleanup
-usage = client.get_usage()
-print(f"{usage.storage_bytes / 1024**3:.2f} GB across {usage.image_count} images")
-client.delete_media(asset.id)
+client.delete_media(asset.id)  # also removes its cached transforms
 ```
 
-## Methods
+</details>
 
-| Method | Does | Endpoint |
+<details>
+<summary><strong>Presets: name a transform once</strong></summary>
+
+```python
+client.create_preset(
+    key="thumb",
+    name="Thumbnail",
+    transform={"width": 200, "height": 200, "fit": "cover", "format": "webp"},
+)
+client.url(asset, {"preset": "thumb"})  # change the preset later and every URL using it follows
+```
+
+</details>
+
+<details>
+<summary><strong>Background removal</strong></summary>
+
+```python
+cutout = client.remove_background(Path("product.jpg"), folder="products")
+
+# One cutout can be served on any background colour, and only the removal is billed
+client.url(cutout, {"bg": "ffffff"})
+client.url(cutout, {"bg": "000000"})
+```
+
+</details>
+
+<details>
+<summary><strong>Text extraction (OCR)</strong></summary>
+
+```python
+result = client.extract_text(Path("invoice.pdf"), include_blocks=True)
+print(result.text)
+for block in result.blocks:
+    print(block)  # line-level bounding boxes
+
+# For an asset already in Dreep: no re-upload, and cached after the first read
+print(client.fetch_text(asset))
+```
+
+</details>
+
+<details>
+<summary><strong>Document conversion</strong></summary>
+
+```python
+pdf = client.convert_document(Path("contract.docx"), format="pdf", folder="contracts")
+slide = client.convert_document(Path("deck.pdf"), format="png", page=2)
+
+if not pdf.is_ready:  # very long documents keep converting in the background
+    print("Still converting; its URL answers 202 until it's ready")
+```
+
+</details>
+
+<details>
+<summary><strong>Usage</strong></summary>
+
+```python
+usage = client.get_usage()
+print(f"{usage.storage_bytes / 1024**3:.2f} GB across {usage.image_count + usage.file_count} files")
+```
+
+</details>
+
+Runnable scripts are in [`examples/`](examples/).
+
+## API reference
+
+| Method | What it does | Endpoint |
 | :- | :- | :- |
-| `upload(file, …)` | Upload in one multipart request | `POST /upload` |
+| `upload(file, …)` | Upload in one multipart request, optionally transforming it first | `POST /upload` |
 | `presign_upload(…)` | Start a direct-to-storage upload | `POST /upload/presign` |
 | `confirm_upload(id, …)` | Finalise a presigned upload | `POST /upload/{id}/confirm` |
 | `upload_presigned(file, …)` | Presign, stream the PUT, and confirm in one call | all three |
@@ -221,84 +307,86 @@ client.delete_media(asset.id)
 | `convert_document(file, format=…)` | Word ↔ PDF, spreadsheets, PDF page to image | `POST /convert` |
 | `get_usage()` | Storage and object counts | `GET /usage` |
 
-Files can be given as `bytes`, a `pathlib.Path`, or a binary file object. A plain `str`
-is rejected on purpose, because it could be either a path or content.
+`file` can be `bytes`, a `pathlib.Path`, or a binary file object. A plain `str` is rejected
+on purpose, because it could be either a path or the file's content.
 
-## Large files and browser uploads
+### Transform parameters
 
-```python
-# Everything on your server: streams from disk, never held in memory
-asset = client.upload_presigned(Path("video.mp4"), folder="uploads/2026")
-
-# Browser uploads: presign on the server, PUT from the browser, confirm on the server
-upload = client.presign_upload(content_type="video/mp4", size_bytes=84_000_000)
-#   -> hand upload.id and upload.upload_url to the browser
-asset = client.confirm_upload(upload.id)
-```
-
-## Signed URLs
-
-```python
-client = Dreep(signing_secret="…")  # or DREEP_SIGNING_SECRET
-link = client.signed_url(asset, expires_in=3600, transform={"width": 800})
-```
+| Key | Applies to | Values |
+| :- | :- | :- |
+| `format` | image, video, document | `webp`, `avif`, `jpeg`, `png`, `mp4`, `hls`, `pdf`, `docx`, `txt` (OCR), … |
+| `width`, `height` | image, video | pixels, max 4000 |
+| `fit` | image, video | `cover`, `contain`, `fill`, `inside`, `outside` |
+| `quality` | image, video | 1–100 |
+| `gravity` | image | `center`, `north`, …, `attention`, `entropy` |
+| `crop` | image | `"left,top,width,height"` or a 4-tuple |
+| `dpr` | image | 1–3 |
+| `rotate` | image | `90`, `180`, `270` |
+| `blur` | image | 0.3–100 |
+| `bg` | image | hex without `#`, e.g. `"ffffff"` |
+| `radius` | image | pixels, or `"max"` for a circle |
+| `trim_start`, `trim_end` | video | seconds |
+| `video_codec`, `fps` | video | `h264`, `vp8`, `vp9`, `hevc`; frames per second |
+| `page` | PDF → image | 1-based page number |
+| `preset` | any | a saved preset key |
 
 ## Errors
 
-Every failure raises a subclass of `DreepError`:
+Every failure raises a subclass of `DreepError`. Catch `DreepError` for everything, or a
+specific subclass for the cases you want to handle differently:
+
+```python
+from dreep import DreepError, DreepLimitError, DreepNotFoundError
+
+try:
+    client.upload(Path("hero.jpg"))
+except DreepLimitError as error:          # 402: the plan ran out
+    print(f"{error.feature_key}: {error.used} of {error.limit}")
+except DreepNotFoundError:                # 404
+    ...
+except DreepError as error:               # everything else
+    print(error.status, error.message, error.request_id)
+```
 
 | Exception | When |
 | :- | :- |
 | `DreepValidationError` | 400 / 413: invalid parameters or file too large (`validation_errors`) |
 | `DreepAuthError` | 401 / 403: missing, malformed or revoked key |
 | `DreepLimitError` | 402: plan limit reached (`feature_key`, `used`, `limit`) |
-| `DreepNotFoundError` | 404 |
+| `DreepNotFoundError` | 404: unknown asset, folder, preset or upload |
 | `DreepConflictError` | 409: confirming before the bytes landed |
 | `DreepRateLimitError` | 429 (`retry_after`) |
 | `DreepServerError` | 5xx |
 | `DreepProcessingError` | 202 where a finished result was needed |
-| `DreepConnectionError` / `DreepTimeoutError` | No response |
+| `DreepConnectionError` / `DreepTimeoutError` | No response arrived |
 
-```python
-from dreep import DreepLimitError
+## Retries and timeouts
 
-try:
-    client.upload(Path("hero.jpg"))
-except DreepLimitError as error:
-    print(f"{error.feature_key}: {error.used} of {error.limit}")
-```
-
-**Retries.** GET requests are retried twice on 429, 5xx and connection failures, using
-exponential backoff with jitter and honouring `Retry-After`. Writes are never retried:
-a repeated upload would store a duplicate and bill twice. Configure with `max_retries=`.
-
-**Timeouts.** JSON calls time out after 30 seconds (`timeout=`). Uploads have no default
-limit; pass `timeout=` on the call to bound one.
+- **Retries.** GET requests are retried twice on 429, 5xx and connection failures, using
+  exponential backoff with jitter and honouring `Retry-After`. Writes are never retried
+  automatically. Set `max_retries=0` to turn retries off.
+- **Timeouts.** JSON calls time out after 30 seconds. Uploads have no default limit, because
+  a large file can take a long time; pass `timeout=` on the call to bound one:
+  `client.upload(path, timeout=120)`.
 
 ## Configuration
 
 | Argument | Environment variable | Default |
 | :- | :- | :- |
 | `api_key` | `DREEP_API_KEY` | required |
-| `signing_secret` | `DREEP_SIGNING_SECRET` | none |
+| `signing_secret` | `DREEP_SIGNING_SECRET` | none (needed only for `signed_url`) |
 | `timeout` | | `30.0` seconds |
 | `max_retries` | | `2` |
 | `http_client` | | an internal `httpx` client; pass your own for proxies or custom transports |
 
 The SDK logs retries to the `dreep` logger.
 
-## Development
+## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).
-
-```bash
-bash scripts/setup_hooks.sh
-```
-
-```bash
-bash scripts/quality_gate.sh
-```
+Contributions are welcome. Every pull request is linked to an issue and reviewed by the
+maintainers. [CONTRIBUTING.md](CONTRIBUTING.md) walks through the whole process, from
+picking an issue to getting approval.
 
 ## License
 
-MIT
+[MIT](LICENSE) © Dreep

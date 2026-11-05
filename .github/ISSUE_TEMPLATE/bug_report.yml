@@ -1,0 +1,51 @@
+name: Bug report
+description: Something in the SDK doesn't behave as documented.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please search existing issues first.
+        **Never include your API key or signing secret.** For security problems, see SECURITY.md instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code that shows the problem.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error or traceback
+      description: Include `error.status`, `error.code` and `error.request_id` if a `DreepError` was raised.
+      render: text
+  - type: input
+    id: sdk-version
+    attributes:
+      label: SDK version
+      description: Output of `python -c "import dreep; print(dreep.__version__)"`
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version and OS
+      placeholder: Python 3.13 on macOS 15
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: Client
+      options: ["Dreep (sync)", "AsyncDreep (asyncio)", "AsyncDreep (trio)"]
+    validations:
+      required: true

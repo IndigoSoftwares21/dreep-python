@@ -89,6 +89,9 @@ def _coercer(key: str, hint: Any) -> _Coerce:
         return _required_str(key)
     if hint in _SCALARS:
         return _SCALARS[hint]
+    if _is_model(hint):  # a required nested model: decode whatever is there
+        required = hint._from_api
+        return lambda v: required(v if isinstance(v, Mapping) else {})
     inner = _optional_of(hint)
     if _is_model(inner):
         nested = inner._from_api

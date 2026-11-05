@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Dreep API documentation
+    url: https://docs.dreep.cloud
+    about: Questions about the Dreep API itself, rather than this SDK.
+  - name: Report a security vulnerability
+    url: https://github.com/IndigoSoftwares21/dreep-python/security/advisories/new
+    about: Please report security problems privately, never in a public issue.

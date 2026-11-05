@@ -69,7 +69,11 @@ A request flows: public method → `op_*` builder (pure: validates, returns an
 
 - Setup: `bash scripts/setup_hooks.sh` (venv, deps, hooks).
 - Gate: `bash scripts/quality_gate.sh` (runs on pre-commit and in CI).
-- Branches: `<type>/<kebab-description>`; `main` is protected: open a PR.
+- Every change starts from an issue. Branch as `<type>/<issue-number>-<description>`.
+- Every PR says `Closes #<issue>` (CI enforces it) and requests review from both
+  maintainers, `abetoluwani` and `IndigoSoftwares21` (CODEOWNERS requests them
+  automatically). Merge only after both approve. See CONTRIBUTING.md.
+- `main` is protected: never push to it directly.
 - Commits: Conventional Commits, ≤100 characters per line, signed.
 - Never bypass hooks with `--no-verify`.
 - Rule debt only shrinks: `scripts/rules-baseline.json` fails on increases and

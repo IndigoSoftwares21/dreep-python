@@ -70,8 +70,8 @@ def test_media_page_maps_type_to_mimetype_and_nests() -> None:
     )
     assert [item.mimetype for item in page] == ["image/png"]
     assert page.assets[0].size_bytes == 7
-    assert page.pagination is not None
     assert page.pagination.total == 1
+    assert MediaPage._from_api({"assets": []}).pagination.total == 0
     assert len(page) == 1
 
 

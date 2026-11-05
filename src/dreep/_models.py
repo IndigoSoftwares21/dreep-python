@@ -86,7 +86,7 @@ class MediaPage(ApiModel):
     """One page of a media listing. Iterating it yields its assets."""
 
     assets: list[MediaItem] = field(default_factory=list)
-    pagination: Pagination | None = None
+    pagination: Pagination = field(default_factory=Pagination)
     raw: Mapping[str, Any] = raw_field()
 
     def __iter__(self) -> Iterator[MediaItem]:
